@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - 0.13.0-o1labs
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Use OCaml 4.14
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "4.14"
+
+      # Same versions as Mina's opam.export
+      - name: Pin Mina's dependency versions
+        run: >
+          opam install --yes
+          alcotest.1.1.0 fmt.0.8.6 menhir.20210419 re.1.9.0
+          rresult.0.6.0 yojson.1.7.0
+
+      - name: Dependencies
+        run: opam install --yes --deps-only --with-test ./graphql_parser.opam ./graphql.opam
+
+      - name: Test
+        run: opam exec -- dune build @runtest -p graphql_parser,graphql
