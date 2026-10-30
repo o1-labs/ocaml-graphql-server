@@ -11,12 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Use OCaml 4.14
+      - name: Use OCaml 4.14.2
         uses: ocaml/setup-ocaml@v3
         with:
-          ocaml-compiler: "4.14"
+          ocaml-compiler: "4.14.2"
           # Same commit as Mina's OPAM_REPOSITORY_COMMIT
           opam-repositories: |
             default: git+https://github.com/ocaml/opam-repository.git#08d8c16c16dc6b23a5278b06dff0ac6c7a217356
