@@ -17,6 +17,9 @@ jobs:
         uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: "4.14"
+          # Same commit as Mina's OPAM_REPOSITORY_COMMIT
+          opam-repositories: |
+            default: git+https://github.com/ocaml/opam-repository.git#08d8c16c16dc6b23a5278b06dff0ac6c7a217356
 
       # Same versions as Mina's opam.export
       - name: Pin Mina's dependency versions
