@@ -3,6 +3,10 @@ open Lexing
 open Parser
 
 exception Error of string
+
+let code_point h = int_of_string ("0x" ^ h)
+
+let add_code_point buf n = Buffer.add_utf_8_uchar buf (Uchar.of_int n)
 }
 
 let ignored = [' ' '\t' ',']+
@@ -14,6 +18,10 @@ let int = '-'? '0' | '-'? ['1'-'9'] digit*
 let fract_part = '.' digit+
 let exp_part = ['e' 'E'] ['+' '-']? digit+
 let float = int fract_part | int exp_part | int fract_part exp_part
+
+let hex = ['0'-'9' 'a'-'f' 'A'-'F']
+let high_surrogate = ['d' 'D'] ['8' '9' 'a' 'b' 'A' 'B'] hex hex
+let low_surrogate = ['d' 'D'] ['c'-'f' 'C'-'F'] hex hex
 
 let name = ['_' 'A'-'Z' 'a'-'z'] ['_' '0'-'9' 'A'-'Z' 'a'-'z']*
 
@@ -61,6 +69,18 @@ and read_string buf = parse
   | '\\' 'n'  { Buffer.add_char buf   '\n'; read_string buf lexbuf }
   | '\\' 'r'  { Buffer.add_char buf   '\r'; read_string buf lexbuf }
   | '\\' 't'  { Buffer.add_char buf   '\t'; read_string buf lexbuf }
+  | "\\u" (high_surrogate as hi) "\\u" (low_surrogate as lo)
+    {
+      add_code_point buf
+        (0x10000 + ((code_point hi - 0xD800) lsl 10) + (code_point lo - 0xDC00));
+      read_string buf lexbuf
+    }
+  | "\\u" (high_surrogate | low_surrogate)
+    { raise (Error ("Unpaired surrogate: " ^ lexeme lexbuf)) }
+  | "\\u" (hex hex hex hex as h)
+    { add_code_point buf (code_point h); read_string buf lexbuf }
+  | '\\' _? { raise (Error ("Invalid escape: " ^ lexeme lexbuf)) }
+  | ['\n' '\r'] | eof { raise (Error "Unterminated string") }
   | [^ '"' '\\' '\n' '\r']+
     {
       Buffer.add_string buf (lexeme lexbuf);

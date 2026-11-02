@@ -235,6 +235,46 @@ let test_escaped_string () =
     }
   |}
 
+let parse_string_arg literal =
+  match Graphql_parser.parse ("{ f(x: \"" ^ literal ^ "\") }") with
+  | Ok [ Graphql_parser.Operation
+           { selection_set = [ Graphql_parser.Field { arguments = [ (_, `String s) ]; _ } ]; _ } ] ->
+      Ok s
+  | Ok _ -> Alcotest.fail "Unexpected document"
+  | Error err -> Error err
+
+let check_string_arg literal expected =
+  match parse_string_arg literal with
+  | Ok s -> Alcotest.(check string) literal expected s
+  | Error err -> Alcotest.failf "Failed to parse %S: %s" literal err
+
+let check_string_arg_error literal =
+  match parse_string_arg literal with
+  | Ok s -> Alcotest.failf "Expected an error for %S, got %S" literal s
+  | Error _ -> ()
+
+let test_unicode_escape () =
+  check_string_arg {|\u0041|} "A";
+  check_string_arg {|\u0000|} "\x00";
+  check_string_arg {|\u001f\u007F|} "\x1f\x7f";
+  check_string_arg {|\u00e9|} "\xc3\xa9";
+  check_string_arg {|\u20AC|} "\xe2\x82\xac";
+  check_string_arg {|\uD83D\uDE00|} "\xf0\x9f\x98\x80";
+  check_string_arg {|a\u0062c|} "abc";
+  (* Raw bytes are kept as before, including bytes that are not UTF-8 *)
+  check_string_arg "\x01\xff" "\x01\xff"
+
+let test_invalid_string () =
+  List.iter check_string_arg_error [
+    {|\uD83D|}; {|\uDE00|}; {|\uD83D\u0041|};
+    {|\u12|}; {|\uZZZZ|}; {|\x|};
+  ];
+  List.iter (fun q ->
+      match Graphql_parser.parse q with
+      | Ok _ -> Alcotest.failf "Expected an error for %S" q
+      | Error _ -> ())
+    [ "{ f(x: \"abc) }"; "{ f(x: \"a\nb\") }"; "{ f(x: \"\\" ]
+
 let suite = [
   "introspection", `Quick, test_introspection_query;
   "kitchen sink", `Quick, test_kitchen_sink;
@@ -242,4 +282,6 @@ let suite = [
   "keywords", `Quick, test_keywords;
   "variables", `Quick, test_variables;
   "escaped string", `Quick, test_escaped_string;
+  "unicode escape", `Quick, test_unicode_escape;
+  "invalid string", `Quick, test_invalid_string;
 ]
